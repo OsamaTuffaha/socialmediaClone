@@ -117,39 +117,76 @@ const getAllUsers = (req, res) => {
     });
 };
 
-const getUserById = (req, res) => {
-  const id = req.params.id;
+const getUserById = async (req, res) => {
+  try {
+    const id = req.params.id;
 
-  const query = `
-    SELECT *
-    FROM users
-    WHERE id = $1 AND is_deleted = 0
-  `;
-  const data = [id];
+    const userQuery = `
+      SELECT 
+        u.id,
+        u.username,
+        u.full_name,
+        u.bio,
+        u.avatar_url,
+        u.created_at,
 
-  pool
-    .query(query, data)
-    .then((result) => {
-      if (result.rows.length) {
-        return res.status(200).json({
-          success: true,
-          message: `the user with id ${id}`,
-          user: result.rows[0], // يوزر واحد
-        });
-      } else {
-        return res.status(404).json({
-          success: false,
-          message: `there is no user with id: ${id}`,
-        });
-      }
-    })
-    .catch((err) => {
-      return res.status(500).json({
+        COUNT(DISTINCT f1.follower_user_id) AS followers,
+        COUNT(DISTINCT f2.followed_user_id) AS following,
+        COUNT(DISTINCT p.id)               AS posts_count
+
+      FROM users u
+      LEFT JOIN follows f1 ON u.id = f1.followed_user_id   -- الناس اللي عاملين له follow
+      LEFT JOIN follows f2 ON u.id = f2.follower_user_id   -- الناس اللي هو عاملهم follow
+      LEFT JOIN posts   p ON u.id = p.user_id              -- بوستاته
+
+      WHERE u.id = $1
+        AND u.is_deleted = 0
+
+      GROUP BY u.id
+    `;
+
+    const userResult = await pool.query(userQuery, [id]);
+
+    if (!userResult.rows.length) {
+      return res.status(404).json({
         success: false,
-        message: "server error",
-        error: err.message,
+        message: `there is no user with id: ${id}`,
       });
+    }
+
+    const user = userResult.rows[0];
+
+    const postsQuery = `
+      SELECT 
+        id,
+        caption,
+        user_id,
+        created_at,
+        updated_at,
+        is_deleted
+      FROM posts
+      WHERE user_id = $1
+        AND is_deleted = 0
+      ORDER BY created_at DESC
+    `;
+
+    const postsResult = await pool.query(postsQuery, [id]);
+
+    user.posts = postsResult.rows;
+
+    return res.status(200).json({
+      success: true,
+      message: `the user with id ${id}`,
+      user,
     });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: "server error",
+      error: err.message,
+    });
+  }
 };
 
 const deleteUserById = (req, res) => {
@@ -220,7 +257,6 @@ const userSearch = async (req, res) => {
       });
     }
 
-    // 1) نجيب اليوزر + followers/following/posts count
     const userQuery = `
       SELECT 
         u.id,
