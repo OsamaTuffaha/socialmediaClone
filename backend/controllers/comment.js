@@ -2,7 +2,6 @@ const pool = require("../models/db");
 
 const createComment = async (req, res) => {
   try {
-    // لازم يكون فيه auth قبله، بس بنعمل تشيك احتياط
     if (!req.token) {
       return res.status(401).json({
         success: false,
@@ -10,8 +9,8 @@ const createComment = async (req, res) => {
       });
     }
 
-    const user_id = req.token.id; // صاحب الكومنت
-    const post_id = req.params.id; // البوست اللي بنعلّق عليه
+    const user_id = req.token.id;
+    const post_id = req.params.id;
 
     const { content, parent_comment_id } = req.body;
 
@@ -45,6 +44,11 @@ const createComment = async (req, res) => {
       error: err.message,
     });
   }
+};
+
+const deleteComment = async (req, res) => {
+  try {
+  } catch (err) {}
 };
 
 module.exports = { createComment };

@@ -9,6 +9,8 @@ const {
   updatePosts,
 } = require("../controllers/posts");
 
+const { likePost, unLikePost, getLikes } = require("../controllers/like");
+
 const postRouter = express.Router();
 
 //public
@@ -19,5 +21,12 @@ postRouter.get("/:id", getPostById);
 postRouter.post("/", auth, createPost);
 postRouter.delete("/:id", auth, deletePostById);
 postRouter.put("/:id", auth, updatePosts);
+
+//like and unlike posts
+postRouter.post("/:id/like", auth, likePost);
+postRouter.delete("/:id/unlike", auth, unLikePost);
+
+//get post likes
+postRouter.get("/:id/likes", getLikes);
 
 module.exports = postRouter;

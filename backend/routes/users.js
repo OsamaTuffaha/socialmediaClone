@@ -9,6 +9,13 @@ const {
   userSearch,
 } = require("../controllers/users");
 
+const {
+  followUser,
+  unFollowUser,
+  getFollowers,
+  getFollowing,
+} = require("../controllers/follow");
+
 const auth = require("../middlewares/authentication");
 
 const userRouter = express.Router();
@@ -24,5 +31,13 @@ userRouter.get("/", getAllUsers);
 userRouter.get("/:id", auth, getUserById);
 userRouter.put("/:id", auth, updateUserById);
 userRouter.delete("/:id", auth, deleteUserById);
+
+//follow/unfollow router
+userRouter.post("/:id/follow", auth, followUser);
+userRouter.delete("/:id/follow", auth, unFollowUser);
+
+//getfollowers and following
+userRouter.get("/:id/followers", getFollowers);
+userRouter.get("/:id/following", getFollowing);
 
 module.exports = userRouter;
