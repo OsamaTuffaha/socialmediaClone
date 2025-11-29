@@ -1,130 +1,198 @@
 const pool = require("../models/db");
 
-const getAllPosts = (req, res) => {
-  pool
-    .query(
-      `
-      SELECT *
-      FROM posts
-      WHERE is_deleted = 0
-      ORDER BY created_at DESC
-      LIMIT 20 OFFSET 0
-      `
-    )
-    .then((result) => {
-      res.status(200).json({
-        success: true,
-        message: `Fetching all posts`,
-        data: result.rows,
-      });
-    })
-    .catch((err) => {
-      res.status(500).json({
-        success: false,
-        message: `error while getting posts`,
-        error: err.message,
-      });
-    });
-};
-
-const createPost = (req, res) => {
+const getAllPosts = async (req, res) => {
   try {
-    const user_id = req.token.id;
-    const { caption } = req.body;
+    const user_id = req.token ? req.token.id : null;
 
     const query = `
-      INSERT INTO posts (user_id, caption)
-      VALUES ($1, $2)
-      RETURNING *
-    `;
-    const data = [user_id, caption];
+      SELECT 
+        p.id,
+        p.caption,
+        p.user_id,
+        p.created_at,
+        p.updated_at,
 
-    pool
-      .query(query, data)
-      .then((result) => {
-        return res.status(201).json({
-          success: true,
-          message: "post created successfully",
-          post: result.rows[0],
-        });
-      })
-      .catch((err) => {
-        return res.status(500).json({
-          success: false,
-          message: "error while creating post",
-          error: err.message,
-        });
-      });
+        -- صاحب البوست
+        u.username,
+        u.full_name,
+        u.avatar_url,
+
+        -- عدد اللايكات
+        (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS likes_count,
+
+        -- عدد الكومنتات
+        (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comments_count,
+
+        -- هل أنا عامل لايك؟
+        CASE 
+          WHEN $1::INT IS NULL THEN false
+          ELSE EXISTS (
+            SELECT 1 
+            FROM likes l2 
+            WHERE l2.post_id = p.id AND l2.user_id = $1
+          )
+        END AS liked_by_me
+
+      FROM posts p
+      JOIN users u ON u.id = p.user_id
+      WHERE p.is_deleted = 0
+      ORDER BY p.created_at DESC
+      LIMIT 20 OFFSET 0
+    `;
+
+    const postsResult = await pool.query(query, [user_id]);
+
+    const postIds = postsResult.rows.map((p) => p.id);
+
+    const mediaQuery = `
+      SELECT 
+        post_id, media_url, media_type, sort_order
+      FROM post_media
+      WHERE post_id = ANY($1)
+      ORDER BY sort_order ASC
+    `;
+
+    const mediaResult = await pool.query(mediaQuery, [postIds]);
+
+    const mediaMap = {};
+
+    mediaResult.rows.forEach((m) => {
+      if (!mediaMap[m.post_id]) mediaMap[m.post_id] = [];
+      mediaMap[m.post_id].push(m);
+    });
+
+    const finalPosts = postsResult.rows.map((p) => ({
+      ...p,
+      media: mediaMap[p.id] || [],
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Fetching all posts",
+      data: finalPosts,
+    });
   } catch (err) {
+    console.log(err);
     return res.status(500).json({
       success: false,
-      message: "server error",
+      message: "error while getting posts",
       error: err.message,
     });
   }
 };
 
-const getPostById = (req, res) => {
-  const id = req.params.id;
-
-  const postQuery = `
-    SELECT 
-      p.*,
-      u.username,
-      u.full_name,
-      u.avatar_url
-    FROM posts p
-    JOIN users u ON p.user_id = u.id
-    WHERE p.id = $1
-      AND p.is_deleted = 0
-  `;
-
-  const commentsQuery = `
-    SELECT 
-      c.id,
-      c.content,
-      c.created_at,
-      c.updated_at,
-      c.parent_comment_id,
-      u.id AS user_id,
-      u.username,
-      u.full_name,
-      u.avatar_url
-    FROM comments c
-    JOIN users u ON c.user_id = u.id
-    WHERE c.post_id = $1
-    ORDER BY c.created_at ASC
-  `;
-
-  pool
-    .query(postQuery, [id])
-    .then((postResult) => {
-      if (!postResult.rows.length) {
-        return res.status(404).json({
-          success: false,
-          message: `there is no post with id: ${id}`,
-        });
-      }
-
-      const post = postResult.rows[0];
-
-      return pool.query(commentsQuery, [id]).then((commentsResult) => {
-        return res.status(200).json({
-          success: true,
-          message: `post with id: ${id}`,
-          post,
-          comments: commentsResult.rows,
-        });
-      });
-    })
-    .catch((err) => {
-      console.error(err);
-      return res.status(500).json({
+const createPost = async (req, res) => {
+  try {
+    if (!req.token) {
+      return res.status(401).json({
         success: false,
-        message: "server error",
-        error: err.message,
+        message: "forbidden, no token provided",
       });
+    }
+
+    const user_id = req.token.id;
+    const { caption, media } = req.body;
+
+    const postQuery = `
+      INSERT INTO posts (user_id, caption)
+      VALUES ($1, $2)
+      RETURNING *
+    `;
+    const postResult = await pool.query(postQuery, [user_id, caption || null]);
+    const post = postResult.rows[0];
+
+    let mediaRows = [];
+
+    if (Array.isArray(media) && media.length > 0) {
+      const mediaQuery = `
+        INSERT INTO post_media (post_id, media_url, media_type, sort_order)
+        VALUES ($1, $2, $3, $4)
+        RETURNING *
+      `;
+
+      let order = 0;
+
+      for (const item of media) {
+        const url = item.url;
+        const type = item.type || "image";
+
+        if (!url) continue;
+
+        const result = await pool.query(mediaQuery, [
+          post.id,
+          url,
+          type,
+          order++,
+        ]);
+
+        mediaRows.push(result.rows[0]);
+      }
+    }
+
+    post.media = mediaRows;
+
+    return res.status(201).json({
+      success: true,
+      message: "post created successfully",
+      post,
     });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: "server error while creating post",
+      error: err.message,
+    });
+  }
+};
+
+const getPostById = async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    const postQuery = `
+      SELECT 
+        p.*,
+        u.username,
+        u.full_name,
+        u.avatar_url
+      FROM posts p
+      JOIN users u ON p.user_id = u.id
+      WHERE p.id = $1 AND p.is_deleted = 0
+    `;
+    const postResult = await pool.query(postQuery, [id]);
+
+    if (!postResult.rows.length) {
+      return res.status(404).json({
+        success: false,
+        message: `no post found with id: ${id}`,
+      });
+    }
+
+    const post = postResult.rows[0];
+
+    const mediaQuery = `
+      SELECT id, media_url, media_type, sort_order
+      FROM post_media
+      WHERE post_id = $1
+      ORDER BY sort_order ASC, id ASC
+    `;
+    const mediaResult = await pool.query(mediaQuery, [id]);
+
+    post.media = mediaResult.rows;
+
+    return res.status(200).json({
+      success: true,
+      post,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: "server error while getting post",
+      error: err.message,
+    });
+  }
 };
 
 const deletePostById = async (req, res) => {
@@ -221,6 +289,97 @@ const updatePosts = async (req, res) => {
     });
   }
 };
+const getFeed = async (req, res) => {
+  try {
+    const user_id = req.token.id;
+
+    const query = `
+      SELECT 
+        p.id,
+        p.caption,
+        p.user_id,
+        p.created_at,
+        p.updated_at,
+
+        u.username,
+        u.full_name,
+        u.avatar_url,
+
+        (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS likes_count,
+        (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comments_count,
+
+        EXISTS (
+          SELECT 1 
+          FROM likes l2 
+          WHERE l2.post_id = p.id AND l2.user_id = $1
+        ) AS liked_by_me
+
+      FROM posts p
+      JOIN users u ON u.id = p.user_id
+      WHERE p.is_deleted = 0
+        AND (
+          p.user_id = $1
+          OR p.user_id IN (
+            SELECT followed_user_id
+            FROM follows
+            WHERE follower_user_id = $1
+          )
+        )
+      ORDER BY p.created_at DESC
+      LIMIT 20 OFFSET 0
+    `;
+
+    const postsResult = await pool.query(query, [user_id]);
+    const posts = postsResult.rows;
+
+    if (!posts.length) {
+      return res.status(200).json({
+        success: true,
+        message: "no posts in feed yet",
+        data: [],
+      });
+    }
+
+    const postIds = posts.map((p) => p.id);
+
+    const mediaQuery = `
+      SELECT 
+        post_id,
+        media_url,
+        media_type,
+        sort_order
+      FROM post_media
+      WHERE post_id = ANY($1)
+      ORDER BY sort_order ASC, id ASC
+    `;
+
+    const mediaResult = await pool.query(mediaQuery, [postIds]);
+
+    const mediaMap = {};
+    mediaResult.rows.forEach((m) => {
+      if (!mediaMap[m.post_id]) mediaMap[m.post_id] = [];
+      mediaMap[m.post_id].push(m);
+    });
+
+    const finalFeed = posts.map((p) => ({
+      ...p,
+      media: mediaMap[p.id] || [],
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "feed fetched successfully",
+      data: finalFeed,
+    });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({
+      success: false,
+      message: "server error while getting feed",
+      error: err.message,
+    });
+  }
+};
 
 module.exports = {
   getAllPosts,
@@ -228,4 +387,5 @@ module.exports = {
   getPostById,
   deletePostById,
   updatePosts,
+  getFeed,
 };

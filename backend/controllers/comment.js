@@ -48,7 +48,96 @@ const createComment = async (req, res) => {
 
 const deleteComment = async (req, res) => {
   try {
-  } catch (err) {}
+    if (!req.token) {
+      return res.status(401).json({
+        success: false,
+        message: "forbidden, no token provided",
+      });
+    }
+
+    const user_id = req.token.id;
+    const comment_id = req.params.id;
+
+    const commentResult = await pool.query(
+      `
+      SELECT id, user_id, post_id
+      FROM comments
+      WHERE id = $1
+      `,
+      [comment_id]
+    );
+
+    if (!commentResult.rows.length) {
+      return res.status(404).json({
+        success: false,
+        message: "comment not found",
+      });
+    }
+
+    const comment = commentResult.rows[0];
+
+    if (comment.user_id != user_id) {
+      return res.status(403).json({
+        success: false,
+        message: "you cannot delete a comment that is not yours",
+      });
+    }
+
+    await pool.query(
+      `
+      DELETE FROM comments
+      WHERE id = $1
+      `,
+      [comment_id]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "comment deleted successfully",
+    });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({
+      success: false,
+      message: "server error",
+      error: err.message,
+    });
+  }
 };
 
-module.exports = { createComment };
+const getCommentsByPostId = async (req, res) => {
+  try {
+    const post_id = req.params.id;
+
+    const query = `
+      SELECT 
+        c.id,
+        c.content,
+        c.created_at,
+        c.parent_comment_id,
+        u.id AS user_id,
+        u.username,
+        u.avatar_url
+      FROM comments c
+      JOIN users u ON c.user_id = u.id
+      WHERE c.post_id = $1
+      ORDER BY c.created_at ASC
+    `;
+
+    const result = await pool.query(query, [post_id]);
+
+    return res.status(200).json({
+      success: true,
+      message: `comments for post ${post_id}`,
+      comments: result.rows,
+    });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({
+      success: false,
+      message: "server error while getting comments",
+      error: err.message,
+    });
+  }
+};
+module.exports = { createComment, deleteComment, getCommentsByPostId };

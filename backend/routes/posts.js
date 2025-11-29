@@ -7,11 +7,15 @@ const {
   getPostById,
   deletePostById,
   updatePosts,
+  getFeed,
 } = require("../controllers/posts");
 
 const { likePost, unLikePost, getLikes } = require("../controllers/like");
 
 const postRouter = express.Router();
+
+//get feed
+postRouter.get("/feed", auth, getFeed);
 
 //public
 postRouter.get("/", getAllPosts);
