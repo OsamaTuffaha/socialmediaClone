@@ -1,11 +1,12 @@
 // src/App.jsx
 
-import PostCard from "./components/postCard";
-import Login from "./pages/Login";
+import Login from "./pages/Login/login";
 
 function App() {
    return (
-    <Login />
+    <div>
+      <Login />
+    </div>
   );
 }
 

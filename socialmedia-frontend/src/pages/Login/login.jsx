@@ -1,3 +1,4 @@
+// src/pages/Login.jsx
 import React, { useState, useEffect } from "react";
 import {
   Box,
@@ -63,10 +64,7 @@ const Login = () => {
       }}
     >
       <Container maxWidth="xs">
-        <Paper
-          elevation={4}
-          sx={{ p: 4, borderRadius: 3, bgcolor: "white" }}
-        >
+        <Paper elevation={4} sx={{ p: 4, borderRadius: 3, bgcolor: "white" }}>
           <Typography
             variant="h5"
             align="center"
