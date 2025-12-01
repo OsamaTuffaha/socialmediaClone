@@ -2,32 +2,43 @@ const pool = require("../models/db");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const { response } = require("express");
-const saltRounds = parseInt(process.env.SALT);
+
+const saltRounds = parseInt(process.env.SALT, 10) || 10;
 
 const register = async (req, res) => {
   try {
-    const { username, email, password_hash } = req.body;
+    const { username, email, password, full_name } = req.body; // ⬅️ استقبل password مش password_hash
 
-    const encryptedPassword = await bcrypt.hash(password_hash, saltRounds);
+    console.log("REGISTER BODY:", req.body);
+
+    if (!username || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Username, email and password are required",
+      });
+    }
+
+    // هش الباسورد العادي
+    const encryptedPassword = await bcrypt.hash(password, saltRounds);
 
     const query = `
-      INSERT INTO users (username, email, password_hash)
-      VALUES ($1, $2, $3)
+      INSERT INTO users (username, email, password_hash , full_name)
+      VALUES ($1, $2, $3 , $4)
       RETURNING id, username, email
     `;
 
-    const data = [username, email, encryptedPassword];
+    const data = [username, email.toLowerCase(), encryptedPassword, full_name];
 
     const result = await pool.query(query, data);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "user created successfully",
       user: result.rows[0],
     });
   } catch (err) {
-    console.log(err);
-    res.status(409).json({
+    console.log("REGISTER ERROR:", err);
+    return res.status(409).json({
       success: false,
       message: "Email already exists or DB error",
       error: err.message,
@@ -37,7 +48,7 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { email, password_hash } = req.body;
+    const { email, password } = req.body; // ⬅️ بدل password_hash
 
     const query = `
       SELECT *
@@ -58,7 +69,7 @@ const login = async (req, res) => {
 
     const user = result.rows[0];
 
-    const isMatch = await bcrypt.compare(password_hash, user.password_hash);
+    const isMatch = await bcrypt.compare(password, user.password_hash);
 
     if (!isMatch) {
       return res.status(403).json({

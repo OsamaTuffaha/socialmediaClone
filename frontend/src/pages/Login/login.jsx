@@ -26,7 +26,6 @@ const Login = () => {
 
   useEffect(() => {
     if (auth.isLoggedIn) {
-      nav("/home");
     }
   }, [auth.isLoggedIn, nav]);
 
@@ -41,6 +40,8 @@ const Login = () => {
       });
 
       const { token, id } = result.data; 
+      console.log(result);
+      
 
       dispatch(setLogin(token));
       dispatch(setUserId(id));
@@ -111,12 +112,14 @@ const Login = () => {
             </Button>
 
             <Typography
+
               variant="body2"
               align="center"
               sx={{ mt: 2, color: "text.secondary" }}
+              
             >
               Not a member?{" "}
-              <span style={{ color: "#1976d2", cursor: "pointer" }}>
+              <span onClick={()=>{nav("/register")}} style={{ color: "#1976d2", cursor: "pointer" }}>
                 Create an account
               </span>
             </Typography>
