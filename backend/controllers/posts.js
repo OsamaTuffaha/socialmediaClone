@@ -44,6 +44,16 @@ const getAllPosts = async (req, res) => {
 
     const postIds = postsResult.rows.map((p) => p.id);
 
+    // لو ما في بوستات، رجّع فاضي
+    if (postIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "no posts yet",
+        data: [],
+      });
+    }
+
+    // الميديا لكل بوست
     const mediaQuery = `
       SELECT 
         post_id, media_url, media_type, sort_order
@@ -91,8 +101,10 @@ const createPost = async (req, res) => {
     }
 
     const user_id = req.token.id;
-    const { caption, media } = req.body;
+    const { caption } = req.body; // caption من body
+    const files = req.files || []; // الميديا من multer
 
+    // 1) إدخال البوست
     const postQuery = `
       INSERT INTO posts (user_id, caption)
       VALUES ($1, $2)
@@ -101,9 +113,10 @@ const createPost = async (req, res) => {
     const postResult = await pool.query(postQuery, [user_id, caption || null]);
     const post = postResult.rows[0];
 
+    // 2) إدخال الميديا المرتبطة بالبوست
     let mediaRows = [];
 
-    if (Array.isArray(media) && media.length > 0) {
+    if (files.length > 0) {
       const mediaQuery = `
         INSERT INTO post_media (post_id, media_url, media_type, sort_order)
         VALUES ($1, $2, $3, $4)
@@ -112,11 +125,9 @@ const createPost = async (req, res) => {
 
       let order = 0;
 
-      for (const item of media) {
-        const url = item.url;
-        const type = item.type || "image";
-
-        if (!url) continue;
+      for (const file of files) {
+        const url = `/uploads/${file.filename}`;
+        const type = file.mimetype.startsWith("video") ? "video" : "image";
 
         const result = await pool.query(mediaQuery, [
           post.id,

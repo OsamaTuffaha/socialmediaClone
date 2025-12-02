@@ -7,7 +7,7 @@ const saltRounds = parseInt(process.env.SALT, 10) || 10;
 
 const register = async (req, res) => {
   try {
-    const { username, email, password, full_name } = req.body; // ⬅️ استقبل password مش password_hash
+    const { username, email, password, full_name } = req.body;
 
     console.log("REGISTER BODY:", req.body);
 
@@ -18,7 +18,6 @@ const register = async (req, res) => {
       });
     }
 
-    // هش الباسورد العادي
     const encryptedPassword = await bcrypt.hash(password, saltRounds);
 
     const query = `
@@ -48,7 +47,7 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body; // ⬅️ بدل password_hash
+    const { email, password } = req.body;
 
     const query = `
       SELECT *
@@ -83,6 +82,7 @@ const login = async (req, res) => {
       id: user.id,
       username: user.username,
       email: user.email,
+      avatar: user.avatar_url,
     };
 
     const secret = process.env.SECRET;
@@ -97,6 +97,7 @@ const login = async (req, res) => {
       username: user.username,
       email: user.email,
       id: user.id,
+      avatar: user.avatar_url,
     });
   } catch (err) {
     console.error(err);

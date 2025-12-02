@@ -102,13 +102,7 @@ const Register = () => {
               onChange={(e) => setUsername(e.target.value)}
             />
 
-            <TextField
-              label="Full Name"
-              fullWidth
-              required
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-            />
+            
 
             <TextField
               label="Email"

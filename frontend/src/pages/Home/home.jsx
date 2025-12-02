@@ -28,6 +28,8 @@ import {
   toggleLikeLocal,
 } from "../../service/reducers/post/postSlicer";
 
+const BASE_URL = "http://localhost:5000"; // 👈 هنا الأساس لكل الصور والفيديوهات
+
 const ExpandMore = styled((props) => {
   const { expand, ...other } = props;
   return <IconButton {...other} />;
@@ -57,16 +59,21 @@ function RecipeReviewCard({ post }) {
     ? post.username.charAt(0).toUpperCase()
     : "U";
 
+  // لو في avatar_url نخليها من السيرفر، غير هيك أول حرف من الاسم
+  const avatarSrc = post.avatar_url
+    ? `${BASE_URL}${post.avatar_url}`
+    : undefined;
+
   return (
     <Card sx={{ maxWidth: 500, width: "100%", mb: 3 }}>
       <CardHeader
         avatar={
           <Avatar
-            src={post.avatar_url || undefined}
+            src={avatarSrc}
             sx={{ bgcolor: red[500] }}
             aria-label={post.username || "user"}
           >
-            {!post.avatar_url && avatarLetter}
+            {!avatarSrc && avatarLetter}
           </Avatar>
         }
         action={
@@ -78,18 +85,25 @@ function RecipeReviewCard({ post }) {
         subheader={new Date(post.created_at).toLocaleString()}
       />
 
+      {/* صورة البوست */}
       {mainMedia && mainMedia.media_type === "image" && (
         <CardMedia
           component="img"
           height="350"
-          image={mainMedia.media_url}
+          image={`${BASE_URL}${mainMedia.media_url}`} // 👈 هنا التعديل المهم
           alt={post.caption || "post image"}
+          sx={{ objectFit: "cover" }}
         />
       )}
 
-      {/* لو حاب تضيف فيديو بعدين: */}
-      {/* {mainMedia && mainMedia.media_type === "video" && (
-        <CardMedia component="video" controls src={mainMedia.media_url} />
+      {/* لو حاب تضيف فيديو بعدين:
+      {mainMedia && mainMedia.media_type === "video" && (
+        <CardMedia
+          component="video"
+          controls
+          src={`${BASE_URL}${mainMedia.media_url}`}
+          sx={{ width: "100%", maxHeight: 500 }}
+        />
       )} */}
 
       <CardContent>
@@ -100,9 +114,7 @@ function RecipeReviewCard({ post }) {
 
       <CardActions disableSpacing>
         <IconButton aria-label="add to favorites" onClick={handleLikeClick}>
-          <FavoriteIcon
-            color={post.isLiked ? "error" : "inherit"}
-          />
+          <FavoriteIcon color={post.isLiked ? "error" : "inherit"} />
         </IconButton>
         <Typography variant="body2" sx={{ mr: 2 }}>
           {post.likes_count ?? 0}
@@ -131,9 +143,7 @@ function RecipeReviewCard({ post }) {
           <Typography sx={{ marginBottom: 1, fontWeight: "bold" }}>
             Post details
           </Typography>
-          <Typography sx={{ marginBottom: 1 }}>
-            Post ID: {post.id}
-          </Typography>
+          <Typography sx={{ marginBottom: 1 }}>Post ID: {post.id}</Typography>
           <Typography sx={{ marginBottom: 1 }}>
             User ID: {post.user_id}
           </Typography>
@@ -164,7 +174,11 @@ const HomePage = () => {
           result = await axios.get("http://localhost:5000/post/");
           console.log("ALL POSTS:", result.data);
         } else {
-          result = await axios.get("http://localhost:5000/post/feed");
+          result = await axios.get("http://localhost:5000/post/feed", {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          });
           console.log("FEED:", result.data);
         }
 

@@ -46,7 +46,7 @@ const Login = () => {
       dispatch(setLogin(token));
       dispatch(setUserId(id));
 
-      nav("/home");
+      nav("/");
     } catch (error) {
       console.error(error);
       const msg =
