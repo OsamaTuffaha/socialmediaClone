@@ -3,6 +3,7 @@ import Login from "../pages/Login/login";
 import Register from "../pages/Register/register";
 import HomePage from "../pages/Home/home";
 import NavBar from "../components/NavBar/navbar";
+import Profile from "../pages/Profile/profile";
 
 const router = createBrowserRouter([
   {
@@ -19,6 +20,15 @@ const router = createBrowserRouter([
       <>
         <NavBar />
         <HomePage />
+      </>
+    ),
+  },
+  {
+    path: "/user/:id",
+    element: (
+      <>
+        <NavBar />
+        <Profile />
       </>
     ),
   },

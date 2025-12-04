@@ -391,6 +391,71 @@ const getFeed = async (req, res) => {
     });
   }
 };
+const getPostsByUserId = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // 1) جيب كل بوستات هذا المستخدم
+    const postsQuery = `
+      SELECT 
+        p.*,
+        u.username,
+        u.full_name,
+        u.avatar_url
+      FROM posts p
+      JOIN users u ON p.user_id = u.id
+      WHERE p.user_id = $1
+        AND p.is_deleted = 0
+      ORDER BY p.created_at DESC
+    `;
+
+    const postsResult = await pool.query(postsQuery, [userId]);
+    const posts = postsResult.rows;
+
+    if (!posts.length) {
+      return res.status(200).json({
+        success: true,
+        posts: [],
+      });
+    }
+
+    // 2) جيب كل الميديا لكل البوستات مرة واحدة
+    const postIds = posts.map((p) => p.id);
+
+    const mediaQuery = `
+      SELECT id, post_id, media_url, media_type, sort_order
+      FROM post_media
+      WHERE post_id = ANY($1::bigint[])
+      ORDER BY sort_order ASC, id ASC
+    `;
+
+    const mediaResult = await pool.query(mediaQuery, [postIds]);
+
+    // 3) وزّع الميديا على كل بوست
+    const mediaByPostId = {};
+    mediaResult.rows.forEach((m) => {
+      if (!mediaByPostId[m.post_id]) mediaByPostId[m.post_id] = [];
+      mediaByPostId[m.post_id].push(m);
+    });
+
+    const postsWithMedia = posts.map((p) => ({
+      ...p,
+      media: mediaByPostId[p.id] || [],
+    }));
+
+    return res.status(200).json({
+      success: true,
+      posts: postsWithMedia,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: "server error while getting user posts",
+      error: err.message,
+    });
+  }
+};
 
 module.exports = {
   getAllPosts,
@@ -399,4 +464,5 @@ module.exports = {
   deletePostById,
   updatePosts,
   getFeed,
+  getPostsByUserId,
 };

@@ -23,7 +23,6 @@ import TextField from "@mui/material/TextField";
 import Stack from "@mui/material/Stack";
 
 import { setLoggout } from "../../service/reducers/auth/authSlicer";
-// import { addPost } from "../../service/reducers/post/postSlicer"; // لو حاب تحدث الريدكس بعد النشر
 
 const pages = ["Home", "Explore", "About"];
 const settings = ["Profile", "Account", "Dashboard", "Logout"];
@@ -40,7 +39,6 @@ const modalStyle = {
   padding: 24,
 };
 
-// ========== Child Modal: اختيار الميديا (صور/فيديو) ==========
 function MediaPickerModal({ open, onClose, onConfirm }) {
   const [tempMedia, setTempMedia] = React.useState([]);
 
@@ -394,11 +392,21 @@ function NavBar() {
                 open={Boolean(anchorElNav)}
                 onClose={handleCloseNavMenu}
               >
-                {pages.map((page) => (
-                  <MenuItem key={page} onClick={handleCloseNavMenu}>
-                    <Typography textAlign="center">{page}</Typography>
-                  </MenuItem>
-                ))}
+                {pages.map((page) => {
+                  const handleClick = () => {
+                    if (page === "Home") {
+                      nav("/");
+                    }
+
+                    handleCloseNavMenu();
+                  };
+
+                  return (
+                    <MenuItem key={page} onClick={handleClick}>
+                      <Typography textAlign="center">{page}</Typography>
+                    </MenuItem>
+                  );
+                })}
               </Menu>
             </Box>
 
@@ -465,16 +473,21 @@ function NavBar() {
                     {settings.map((setting) => {
                       if (setting === "Logout" && !token) return null;
 
-                      const handleClick =
-                        setting === "Logout"
-                          ? handleLogout
-                          : handleCloseUserMenu;
+                      const handleClick = () => {
+                        if (setting === "Profile") {
+                          if (token) {
+                            nav(`/user/${localStorage.getItem("userId")}`);
+                          }
+                        } else if (setting === "Logout") {
+                          handleLogout();
+                        }
+
+                        handleCloseUserMenu();
+                      };
 
                       return (
                         <MenuItem key={setting} onClick={handleClick}>
-                          <Typography textAlign="center">
-                            {setting}
-                          </Typography>
+                          <Typography textAlign="center">{setting}</Typography>
                         </MenuItem>
                       );
                     })}

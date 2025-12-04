@@ -10,6 +10,7 @@ const {
   deletePostById,
   updatePosts,
   getFeed,
+  getPostsByUserId,
 } = require("../controllers/posts");
 
 const { likePost, unLikePost, getLikes } = require("../controllers/like");
@@ -35,6 +36,7 @@ postRouter.get("/feed", auth, getFeed);
 //public
 postRouter.get("/", getAllPosts);
 postRouter.get("/:id", getPostById);
+postRouter.get("/user/:id", getPostsByUserId);
 
 //private
 postRouter.post("/", auth, upload.array("media", 10), createPost);

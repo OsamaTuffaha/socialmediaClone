@@ -28,7 +28,7 @@ userRouter.get("/search", userSearch);
 userRouter.get("/", getAllUsers);
 
 // Protected
-userRouter.get("/:id", auth, getUserById);
+userRouter.get("/:id", getUserById);
 userRouter.put("/:id", auth, updateUserById);
 userRouter.delete("/:id", auth, deleteUserById);
 

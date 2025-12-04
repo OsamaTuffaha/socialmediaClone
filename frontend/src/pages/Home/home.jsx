@@ -4,6 +4,7 @@ import * as React from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { Link } from "react-router-dom";
 
 import { styled } from "@mui/material/styles";
 import Card from "@mui/material/Card";
@@ -70,8 +71,10 @@ function RecipeReviewCard({ post }) {
         avatar={
           <Avatar
             src={avatarSrc}
-            sx={{ bgcolor: red[500] }}
+            sx={{ bgcolor: red[500], cursor: "pointer" }}
             aria-label={post.username || "user"}
+            component={Link} // 👈 خلّيناه Link
+            to={`/user/${post.user_id}`} // 👈 يوديك على صفحة البروفايل
           >
             {!avatarSrc && avatarLetter}
           </Avatar>
@@ -81,7 +84,20 @@ function RecipeReviewCard({ post }) {
             <MoreVertIcon />
           </IconButton>
         }
-        title={post.username || "Unknown user"}
+        title={
+          <Typography
+            component={Link}
+            to={`/user/${post.user_id}`} // 👈 نفس المسار
+            sx={{
+              textDecoration: "none",
+              color: "inherit",
+              fontWeight: 600,
+              "&:hover": { textDecoration: "underline" },
+            }}
+          >
+            {post.username || "Unknown user"}
+          </Typography>
+        }
         subheader={new Date(post.created_at).toLocaleString()}
       />
 
@@ -90,21 +106,21 @@ function RecipeReviewCard({ post }) {
         <CardMedia
           component="img"
           height="350"
-          image={`${BASE_URL}${mainMedia.media_url}`} // 👈 هنا التعديل المهم
+          image={`${BASE_URL}${mainMedia.media_url}`}
           alt={post.caption || "post image"}
           sx={{ objectFit: "cover" }}
         />
       )}
 
       {/* لو حاب تضيف فيديو بعدين:
-      {mainMedia && mainMedia.media_type === "video" && (
-        <CardMedia
-          component="video"
-          controls
-          src={`${BASE_URL}${mainMedia.media_url}`}
-          sx={{ width: "100%", maxHeight: 500 }}
-        />
-      )} */}
+  {mainMedia && mainMedia.media_type === "video" && (
+    <CardMedia
+      component="video"
+      controls
+      src={`${BASE_URL}${mainMedia.media_url}`}
+      sx={{ width: "100%", maxHeight: 500 }}
+    />
+  )} */}
 
       <CardContent>
         <Typography variant="body2" sx={{ color: "text.secondary" }}>

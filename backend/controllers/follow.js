@@ -6,7 +6,7 @@ const followUser = async (req, res) => {
     const followed_id = req.params.id;
 
     if (followed_id == follower_id) {
-      return res, status(400).json({ message: "you cant follow your self" });
+      return res.status(400).json({ message: "you cant follow your self" });
     }
 
     const userCheck = await pool.query(
